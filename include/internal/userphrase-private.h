@@ -40,6 +40,9 @@
 #define USER_UPDATE_MODIFY (2)
 #define USER_UPDATE_IGNORE (8)
 
+#define EXPORT_SUCCESS (1)
+#define EXPORT_FAIL    (2)
+
 /* Forward declaration */
 struct ChewingData;
 
@@ -93,6 +96,8 @@ void UserGetPhraseEnd(struct ChewingData *pgdata, const uint16_t phoneSeq[]);
 void IncreaseLifeTime(struct ChewingData *pgdata);
 
 char *GetDefaultUserPhrasePath(struct ChewingData *pgdata);
+
+int ExportToJson(struct ChewingData *pgdata, const char *userpath);
 
 /* *INDENT-OFF* */
 #endif

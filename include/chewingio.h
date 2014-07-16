@@ -534,6 +534,8 @@ CHEWING_API int chewing_userphrase_remove(ChewingContext *ctx, const char *phras
 
 CHEWING_API int chewing_userphrase_lookup(ChewingContext *ctx, const char *phrase_buf, const char *bopomofo_buf);
 
+CHEWING_API int chewing_userphrase_export(ChewingContext *ctx, const char *path);
+
 CHEWING_API int chewing_cand_list_first(ChewingContext *ctx);
 CHEWING_API int chewing_cand_list_last(ChewingContext *ctx);
 CHEWING_API int chewing_cand_list_has_next(ChewingContext *ctx);

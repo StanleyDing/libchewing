@@ -19,6 +19,7 @@
 #include "userphrase-private.h"
 #include "private.h"
 #include "key2pho-private.h"
+#include "json.h"
 
 static int UserBindPhone(ChewingData *pgdata, int index, const uint16_t phoneSeq[], int len)
 {
@@ -177,6 +178,26 @@ static void LogUserPhrase(ChewingData *pgdata,
 
     LOG_INFO("userphrase %s, phone = %s, orig_freq = %d, max_freq = %d, user_freq = %d, recent_time = %d",
              wordSeq, buf, orig_freq, max_freq, user_freq, recent_time);
+}
+
+static int WriteRow(void *array_obj, int column_num,
+                    char **text, char **column_name)
+{
+    int i;
+    json_object *row_obj;
+
+    row_obj = json_object_new_object();
+
+    /* First (column_num - 1) columns of database is of type INTEGER */
+    for (i = 0; i < 16; ++i) {
+        json_object_object_add(row_obj, column_name[i], json_object_new_int(atoi(text[i])));
+    }
+    /* The last column is of type TEXT */
+    json_object_object_add(row_obj, column_name[i], json_object_new_string(text[i]));
+
+    json_object_array_add(array_obj, row_obj);
+
+    return 0;
 }
 
 void UserUpdatePhraseBegin(ChewingData *pgdata)
@@ -449,4 +470,33 @@ void UserGetPhraseEnd(ChewingData *pgdata, const uint16_t phoneSeq[])
 void IncreaseLifeTime(ChewingData *pgdata)
 {
     ++pgdata->static_data.new_lifetime;
+}
+
+int ExportToJson(ChewingData *pgdata, const char *path)
+{
+    int ret;
+    struct json_object *json_obj;
+    struct json_object *array_obj;
+
+    assert(pgdata);
+    assert(path);
+
+    json_obj = json_object_new_object();
+    array_obj = json_object_new_array();
+
+    ret = sqlite3_exec(pgdata->static_data.db,
+                       "SELECT * FROM userphrase_v1",
+                       WriteRow, array_obj, NULL);
+    if (ret != SQLITE_OK) {
+        LOG_ERROR("sqlite3_exec returns %d, ret");
+        return EXPORT_FAIL;
+    }
+
+    json_object_object_add(json_obj, "phrase", array_obj);
+    printf("JSON: %s\n", json_object_to_json_string(json_obj));
+
+    /* free the json_obj */
+    json_object_put(json_obj);
+
+    return EXPORT_SUCCESS;
 }

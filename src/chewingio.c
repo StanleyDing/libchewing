@@ -2085,6 +2085,33 @@ CHEWING_API int chewing_userphrase_lookup(ChewingContext *ctx, const char *phras
     return user_phrase_data == NULL ? 0 : 1;
 }
 
+CHEWING_API int chewing_userphrase_export(ChewingContext *ctx, const char *userpath)
+{
+    ChewingData *pgdata;
+    int ret;
+    char *userphrase_path = NULL;
+
+    if (!ctx) {
+        return 0;
+    }
+    pgdata = ctx->data;
+
+    LOG_API("");
+
+    if (userpath) {
+        userphrase_path = strdup(userpath);
+    } else {
+        userphrase_path = GetDefaultUserPhrasePath(ctx->data);
+    }
+
+    ret = ExportToJson(pgdata, userphrase_path);
+    if (ret == EXPORT_FAIL) {
+        return 0;
+    }
+
+    return 1;
+}
+
 CHEWING_API const char *chewing_cand_string_by_index_static(ChewingContext *ctx, int index)
 {
     ChewingData *pgdata;
