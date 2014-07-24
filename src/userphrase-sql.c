@@ -180,13 +180,16 @@ static void LogUserPhrase(ChewingData *pgdata,
              wordSeq, buf, orig_freq, max_freq, user_freq, recent_time);
 }
 
-static int WriteRow(void *array_obj, int column_num,
+static int ToRowObj(void *array_obj, int column_num,
                     char **text, char **column_name)
 {
     int i;
     json_object *row_obj;
 
     row_obj = json_object_new_object();
+    if (!row_obj) {
+        return 1;
+    }
 
     /* First (column_num - 1) columns of database is of type INTEGER */
     for (i = 0; i < 16; ++i) {
@@ -474,29 +477,198 @@ void IncreaseLifeTime(ChewingData *pgdata)
 
 int ExportToJson(ChewingData *pgdata, const char *path)
 {
+    const char filename[] = "userphrase.json";
+
     int ret;
-    struct json_object *json_obj;
-    struct json_object *array_obj;
+    int result;
+    FILE *fp = NULL;
+    char *filepath = NULL;
+    char *tmp;
+    struct json_object *json_obj = NULL;
+    struct json_object *array_obj = NULL;
 
     assert(pgdata);
     assert(path);
 
+    tmp = getenv("CHEWING_USER_PATH");
+    if (tmp && access(tmp, W_OK) == 0) {
+        ret = asprintf(&filepath, "%s/%s", tmp, filename);
+        if (ret == -1) {
+            LOG_ERROR("asprintf returns %d", ret);
+            result = EXPORT_FAIL;
+            goto end;
+        }
+    }
+
+    fp = fopen(filepath, "w");
+    if (fp == NULL) {
+        LOG_ERROR("can't open file to export");
+        result = EXPORT_FAIL;
+        goto end;
+    }
+
     json_obj = json_object_new_object();
     array_obj = json_object_new_array();
 
+    if (!json_obj || !array_obj) {
+        LOG_ERROR("fail to create json object");
+        result = EXPORT_FAIL;
+        goto end;
+    }
+
     ret = sqlite3_exec(pgdata->static_data.db,
                        "SELECT * FROM userphrase_v1",
-                       WriteRow, array_obj, NULL);
+                       ToRowObj, array_obj, NULL);
     if (ret != SQLITE_OK) {
-        LOG_ERROR("sqlite3_exec returns %d, ret");
-        return EXPORT_FAIL;
+        LOG_ERROR("sqlite3_exec returns %d", ret);
+        result = EXPORT_FAIL;
+        goto end;
     }
 
     json_object_object_add(json_obj, "phrase", array_obj);
-    printf("JSON: %s\n", json_object_to_json_string(json_obj));
+    fprintf(fp, "%s\n", json_object_to_json_string_ext(json_obj, JSON_C_TO_STRING_PRETTY));
 
     /* free the json_obj */
     json_object_put(json_obj);
 
-    return EXPORT_SUCCESS;
+    result = EXPORT_SUCCESS;
+
+  end:
+    fclose(fp);
+    free(filepath);
+
+    return result;
+}
+
+int ImportFromJson(ChewingData *pgdata, const char *path)
+{
+    const int MAX_LEN = 1024;
+    const char *phones[] = {
+        "phone_0", "phone_1", "phone_2", "phone_3",
+        "phone_4", "phone_5", "phone_6", "phone_7",
+        "phone_8", "phone_9", "phone_10"
+    };
+
+    int i, j;
+    int ret;
+    int phrase_length, array_length;
+    FILE *fp;
+    char str[MAX_LEN];
+    const char *word_seq;
+    uint16_t *phone_buf = NULL;
+    struct json_object *json_obj = NULL;
+    struct json_object *phrase_obj;
+    struct json_object *array_obj;
+    struct json_object *tmp_obj;
+    struct json_tokener *tok;
+    enum json_tokener_error jerr;
+
+    assert(pgdata);
+    assert(path);
+
+    fp = fopen(path, "r");
+    if (fp == NULL) {
+        LOG_ERROR("can't open file to import");
+        goto fail;
+    }
+
+    tok = json_tokener_new();
+    if (tok == NULL) {
+        LOG_ERROR("fail to create a json tokener");
+        goto fail;
+    }
+
+    /* parse json file */
+    while (fgets(str, MAX_LEN, fp) != NULL) {
+        json_obj = json_tokener_parse_ex(tok, str, strlen(str));
+        jerr = json_tokener_get_error(tok);
+        if (jerr != json_tokener_continue)
+            break;
+    }
+    if (jerr != json_tokener_success || !json_obj) {
+        LOG_ERROR("json tokener fails");
+        goto fail;
+    }
+
+    /* check the type of the object */
+    if (!json_object_is_type(json_obj, json_type_object)) {
+        LOG_ERROR("file format error");
+        goto fail;
+    }
+
+    ret = json_object_object_get_ex(json_obj, "phrase", &array_obj);
+    if (ret == 0) {
+        LOG_ERROR("json file has no key named `phrase'");
+        goto fail;
+    }
+
+    /* userphrase should be of type array */
+    if (!json_object_is_type(array_obj, json_type_array)) {
+        LOG_ERROR("file format error");
+        goto fail;
+    }
+
+    array_length = json_object_array_length(array_obj);
+    /* each phrase entry is stored in array_object */
+    for (i = 0; i < array_length; ++i) {
+        phrase_obj = json_object_array_get_idx(array_obj, i);
+
+        ret = json_object_object_get_ex(phrase_obj, "length", &tmp_obj);
+        if (ret == 0) {
+            LOG_ERROR("file format error");
+            goto fail;
+        }
+
+        /* get the phrase length */
+        phrase_length = json_object_get_int(tmp_obj);
+        if (phrase_length > MAX_PHRASE_LEN) {
+            LOG_ERROR("phrase length > MAX_PHRASE_LEN");
+            goto fail;
+        } else if (phrase_length < 0) {
+            LOG_ERROR("phrase length < 0");
+            goto fail;
+        }
+
+        /* get the phrase */
+        ret = json_object_object_get_ex(phrase_obj, "phrase", &tmp_obj);
+        if (ret == 0) {
+            LOG_ERROR("file format error");
+            goto fail;
+        }
+        word_seq = json_object_get_string(tmp_obj);
+
+        phone_buf = ALC(uint16_t, phrase_length + 1);
+        if (!phone_buf) {
+            goto fail;
+        }
+
+        /* get the phones */
+        for (j = 0; j < phrase_length; ++j) {
+            ret = json_object_object_get_ex(phrase_obj, phones[j],&tmp_obj);
+            if (ret == 0) {
+                LOG_ERROR("file format error");
+                free(phone_buf);
+                goto fail;
+            }
+            phone_buf[j] = json_object_get_int(tmp_obj);
+        }
+
+        ret = UserUpdatePhrase(pgdata, phone_buf, word_seq);
+        if (ret == USER_UPDATE_FAIL) {
+            LOG_ERROR("UserUpdatePhrase return USER_UPDATE_FAIL");
+            goto fail;
+        }
+
+        free(phone_buf);
+    }
+
+    /* free the json object */
+    json_object_put(json_obj);
+    fclose(fp);
+    return IMPORT_SUCCESS;
+
+  fail:
+    json_object_put(json_obj);
+    fclose(fp);
+    return IMPORT_FAIL;
 }

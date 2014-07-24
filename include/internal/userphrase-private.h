@@ -43,6 +43,9 @@
 #define EXPORT_SUCCESS (1)
 #define EXPORT_FAIL    (2)
 
+#define IMPORT_SUCCESS (1)
+#define IMPORT_FAIL    (2)
+
 /* Forward declaration */
 struct ChewingData;
 
@@ -98,6 +101,8 @@ void IncreaseLifeTime(struct ChewingData *pgdata);
 char *GetDefaultUserPhrasePath(struct ChewingData *pgdata);
 
 int ExportToJson(struct ChewingData *pgdata, const char *userpath);
+
+int ImportFromJson(struct ChewingData *pgdata, const char *path);
 
 /* *INDENT-OFF* */
 #endif

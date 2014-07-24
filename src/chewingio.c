@@ -2112,6 +2112,26 @@ CHEWING_API int chewing_userphrase_export(ChewingContext *ctx, const char *userp
     return 1;
 }
 
+CHEWING_API int chewing_userphrase_import(ChewingContext *ctx, const char *path)
+{
+    ChewingData *pgdata;
+    int ret;
+
+    if (!ctx) {
+        return 0;
+    }
+    pgdata = ctx->data;
+
+    LOG_API("");
+
+    ret = ImportFromJson(pgdata, path);
+    if (ret == IMPORT_FAIL) {
+        return 0;
+    }
+
+    return 1;
+}
+
 CHEWING_API const char *chewing_cand_string_by_index_static(ChewingContext *ctx, int index)
 {
     ChewingData *pgdata;
