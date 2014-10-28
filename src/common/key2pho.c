@@ -26,7 +26,7 @@
  * sake of portability, that avoid some buggy or faulty environment like
  * Microsoft VC9 to misinterpret the string.
  */
-const char *const zhuin_tab[] = {               /* number of bits */
+const char *const phone_tab[] = {               /* number of bits */
     "\xE3\x84\x85\xE3\x84\x86\xE3\x84\x87\xE3\x84\x88\xE3\x84\x89"
     "\xE3\x84\x8A\xE3\x84\x8B\xE3\x84\x8C\xE3\x84\x8D\xE3\x84\x8E"
     "\xE3\x84\x8F\xE3\x84\x90\xE3\x84\x91\xE3\x84\x92\xE3\x84\x93"
@@ -98,7 +98,7 @@ uint16_t UintFromPhone(const char *zhuin)
         len = ueStrNCpy(buf, iter, 1, STRNCPY_CLOSE);
 
         for (; zhuin_index < BOPOMOFO_SIZE; ++zhuin_index) {
-            pos = strstr(zhuin_tab[zhuin_index], buf);
+            pos = strstr(phone_tab[zhuin_index], buf);
             if (pos) {
                 break;
             }
@@ -156,7 +156,7 @@ int PhoneFromUint(char *phone, size_t phone_len, uint16_t phone_num)
     for (i = 0; i < BOPOMOFO_SIZE; ++i) {
         index = ((phone_num >> shift[i]) & mask[i]);
         if (index >= 1) {
-            pos = ueConstStrSeek(zhuin_tab[i], index - 1);
+            pos = ueConstStrSeek(phone_tab[i], index - 1);
             ueStrNCpy(tmp, pos, 1, STRNCPY_CLOSE);
             strcat(buffer, tmp);
         }
@@ -178,7 +178,7 @@ int PhoneInxFromKey(int key, int type, KBTYPE kbtype, int searchTimes)
     if (!PhoneFromKey(rtStr, keyStr, kbtype, searchTimes))
         return 0;
 
-    p = strstr(zhuin_tab[type], rtStr);
+    p = strstr(phone_tab[type], rtStr);
     if (!p)
         return 0;
 

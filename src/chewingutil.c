@@ -43,7 +43,7 @@
 #    include "plat_path.h"
 #endif
 
-extern const char *const zhuin_tab[];
+extern const char *const phone_tab[];
 static void MakePreferInterval(ChewingData *pgdata);
 static void ShiftInterval(ChewingOutput *pgo, ChewingData *pgdata);
 static int ChewingKillSelectIntervalAcross(int cursor, ChewingData *pgdata);
@@ -865,7 +865,7 @@ int MakeOutput(ChewingOutput *pgo, ChewingData *pgdata)
             inx = pgdata->bopomofoData.pho_inx[i];
             if (inx != 0) {
                 ueStrNCpy(pgo->bopomofoBuf + strlen(pgo->bopomofoBuf),
-                          ueConstStrSeek(zhuin_tab[i], inx - 1),
+                          ueConstStrSeek(phone_tab[i], inx - 1),
                           1, STRNCPY_CLOSE);
             }
         }
