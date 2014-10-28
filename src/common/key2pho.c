@@ -84,11 +84,6 @@ static const char *const key_str[KBTYPE_COUNT] = {
     "1qaz2wsxedcrfv5tgbyhnujm8ik,9ol.0p;/-7634",        /* secondary Bopomofo Pinyin */
 };
 
-/*
- * Read one zhuin string,
- *
- * return the number it means. 0 means error.
- */
 uint16_t UintFromPhone(const char *zhuin)
 {
     const char *iter;
@@ -160,8 +155,6 @@ int PhoneFromUint(char *phone, size_t phone_len, uint16_t phone_num)
     char buffer[MAX_UTF8_SIZE * BOPOMOFO_SIZE + 1] = { 0 };
 
     for (i = 0; i < BOPOMOFO_SIZE; ++i) {
-        /* The first two characters in zhuin_tab are space, so we need
-           to add 1 here. */
         index = ((phone_num >> shift[i]) & mask[i]);
         if (index >= 1) {
             pos = ueConstStrSeek(zhuin_tab[i], index - 1);
