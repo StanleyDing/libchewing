@@ -94,8 +94,7 @@ uint16_t UintFromPhone(const char *zhuin)
 
     iter = zhuin;
 
-    /* 0x20: space character */
-    while (*iter && *iter != 0x20) {
+    while (*iter && *iter != ' ') {
         len = ueStrNCpy(buf, iter, 1, STRNCPY_CLOSE);
 
         for (; zhuin_index < BOPOMOFO_SIZE; ++zhuin_index) {
